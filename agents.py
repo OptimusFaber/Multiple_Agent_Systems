@@ -82,7 +82,7 @@ class Agent:
         :param other: Order object
         :return: int (income)
         """
-        dst = dist_count(self.pos, other.pos1) + dist_count(other.pos1, other.pos2)
+        dst = self.dist_count(self.pos, other.pos1) + self.dist_count(other.pos1, other.pos2)
         self.income = other.price - self.price * dst / 10
         return self.income
 
@@ -92,13 +92,8 @@ class Agent:
         :param delivered: bool (status of Order if it was delivered or not)
         :return: None if delivered Order if not delivered
         """
-        buf = self.other
-
         if delivered:
-            if self.partner:
-                del self.partner
-                self.partner = None
-        else:
+            buf = self.partner
             if self.partner:
                 if st == 0:
                     self.partner.clear(st=1)
@@ -116,7 +111,7 @@ class Agent:
 
 
 class Courier(Agent):
-    def __init__(self, ln, wd, num=0):
+    def __init__(self, ln=100, wd=100, num=0):
         super().__init__()
         self.pos = [random.randint(0, wd), random.randint(0, ln)]
         self.price = random.randint(25, 40)
@@ -133,6 +128,8 @@ class Courier(Agent):
         self.vector = None
         self.k = None
         self.b = None
+        self.delivery_status = 0
+        self.make_route = True
 
     def route(self, pt=0):
         """
@@ -142,31 +139,71 @@ class Courier(Agent):
         """
         if self.partner:
             if pt == 0:
-                self.k = (self.pos[1] - self.partner.pos1[1]) / (self.pos[0] - self.partner.pos1[0])
-                self.b = self.pos[1] - self.k * self.pos[0]
+                if self.pos[0] == self.partner.pos1[0]:
+                    self.k = 0
+                    self.b = 0
+                else:
+                    self.k = (self.pos[1] - self.partner.pos1[1]) / (self.pos[0] - self.partner.pos1[0])
+                    self.b = self.pos[1] - self.k * self.pos[0]
             elif pt == 1:
-                self.k = (self.partner.pos2[1] - self.partner.pos1[1]) / (self.partner.pos2[0] - self.partner.pos1[0])
-                self.b = self.partner.pos1[1] - k * self.partner.pos1[0]
+                if self.pos[0] == self.partner.pos2[0]:
+                    self.k = 0
+                    self.b = 0
+                else:
+                    self.k = (self.partner.pos2[1] - self.pos[1]) / (self.partner.pos2[0] - self.pos[0])
+                    self.b = self.pos[1] - self.k * self.pos[0]
 
-    def calculate_position(
-            self):  # Обновлять позицию будем каждую секунду (минуту) => он будет проходить 1 клетку в секунду
+    def calculate_position(self, st=0):  # Обновляем позицию каждую секунду => он будет проходить 1 клетку в секунду
         """
         We have equation:
         x1^2 * (1+k^2) - x1 * (2*x0 + 2*y0*k - 2*k*b) + (x0^2 + y0^2 - 2*y0*b + b^2 - s^2) = 0
         where x1 is unknown
         Calculates the next coordinates of Courier and updates the old ones
-        :return: None
+        :return: list - finish position
         """
+        if st==0:
+            pos = self.partner.pos1
+        else:
+            pos = self.partner.pos2
         a = 1 + self.k ** 2
         b = 2 * self.pos[0] + 2 * self.pos[1] * self.k - 2 * self.k * self.b
-        c = self.pos[0] ** 2 + self.pos[1] ** 2 - 2 * self.pos[1] * self.b + self.b ** 2 - 10 ** 2
+        c = self.pos[0] ** 2 + self.pos[1] ** 2 - 2 * self.pos[1] * self.b + self.b ** 2 - 1 ** 2
         D = b ** 2 - 4 * a * c
-        if self.pos[1] < self.partner.pos1[1]:
+        if D < 0:
+            print()
+        if self.pos[1] < pos[1] and self.pos[0] < pos[0]:
             x = max((b + math.sqrt(D)) / (2 * a), (b - math.sqrt(D)) / (2 * a))
-        else:
+            y = self.k * x + self.b
+        elif self.pos[1] < pos[1] and self.pos[0] > pos[0]:
             x = min((b + math.sqrt(D)) / (2 * a), (b - math.sqrt(D)) / (2 * a))
-        y = self.k * x + self.b
+            y = self.k * x + self.b
+        elif self.pos[1] > pos[1] and self.pos[0] < pos[0]:
+            x = max((b + math.sqrt(D)) / (2 * a), (b - math.sqrt(D)) / (2 * a))
+            y = self.k * x + self.b
+        elif self.pos[1] > pos[1] and self.pos[0] > pos[0]:
+            x = min((b + math.sqrt(D)) / (2 * a), (b - math.sqrt(D)) / (2 * a))
+            y = self.k * x + self.b
+        else:
+            if self.pos[1] == pos[1] and self.pos[0] < pos[0]:
+                y = pos[1]
+                x = self.pos[0] + 1
+            elif self.pos[1] == pos[1] and self.pos[0] > pos[0]:
+                y = pos[1]
+                x = self.pos[0] - 1
+            elif self.pos[1] > pos[1] and self.pos[0] == pos[0]:
+                x = pos[0]
+                y = self.pos[1] - 1
+            elif self.pos[1] > pos[1] and self.pos[0] == pos[0]:
+                x = pos[0]
+                y = self.pos[1] + 1
+            else:
+                self.clear(delivered=True)
+                print('DELIVER COMPLETED')
+                return pos
+
         self.pos = [x, y]  # Обновляем позицию
+
+        return pos
 
     def time_count(self, other):
         """
@@ -192,9 +229,24 @@ class Courier(Agent):
         self.start_work = self.start_time < time  # Проверяем вышел ли Курьер на работу
         self.end_work = self.end_time < time  # Проверяем закончил ли Курьер работу
         self.status = self.start_work and not self.end_work
-        if self.partner:
-            self.route()
-            self.calculate_position()
+        if self.status and self.partner:    # Проверяем есть ли у Курьера заказ и вышел ли он на работу
+            if not self.delivery_status:    # рассчитываем ему путь до первой цели и меняем статус
+                self.route(self.delivery_status)
+
+            pos = self.calculate_position(self.delivery_status)     # Возвращаем позицию цели
+            print(self.dist_count(self.pos, pos), self.pos, pos)
+            if self.dist_count(self.pos, pos) <= 1:                      # Если курьер в минуте от цели, считаем что
+                self.delivery_status = (self.delivery_status + 1) % 2   # заказ доставлен
+                self.pos = pos
+                self.route(self.delivery_status)
+                print('ROUTE CHANGED')
+                if not self.delivery_status:                        # Если статус снова 0, значит заказ доставлен
+                    print('DELIVER COMPLETED')
+                    self.clear(delivered=True)
+
+    def check_if_arrived(self, pos):
+        if self.dist_count(self.pos, pos) <= 1:
+            self.delivery_status += 1
 
     def __str__(self):
         return 'Courier-{} took order number {}'.format(self.num, self.partner.num)
@@ -261,7 +313,7 @@ class Order_parse:
         """
         s1 = random.randint(0, 11)
         s2 = random.randint(90, 101)
-        s3 = random.randint(1, 11)
+        s3 = random.randint(6, 11)
 
         x = []
         while len(x) < 9:
@@ -271,7 +323,7 @@ class Order_parse:
 
         s1 = random.randint(0, 11)
         s2 = random.randint(90, 101)
-        s3 = random.randint(1, 11)
+        s3 = random.randint(6, 11)
 
         y = []
         while len(y) < 9:
@@ -321,7 +373,7 @@ def greedy_algorithm3(ordr, work):
                         obj = work[j]
                         received_ordeers.remove(ordr)  # Убираем заказ из списка принятых и продолжаем искать варианты
         if obj:
-            ordr[i].update(obj)
+            ordr[i].connect(obj)
             received_orders.append(ordr[i])  # Добавляем заказ в список принятых
 
     return received_orders
