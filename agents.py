@@ -111,7 +111,7 @@ class Agent:
 
 
 class Courier(Agent):
-    def __init__(self, ln=100, wd=100, num=0):
+    def __init__(self, ln=200, wd=200, num=0):
         super().__init__()
         self.pos = [random.randint(0, wd), random.randint(0, ln)]
         self.price = random.randint(25, 40)
@@ -280,9 +280,9 @@ class Order_parse:
     """
     For generating or reading coordinates of order
     """
-    def __init__(self, choice='random', num=None, filename=None):
+    def __init__(self, choice='random', num=None, filename=None, size=200):
         if choice == 'random':
-            self.ords = self.random_generate(num)
+            self.ords = self.random_generate(num, size)
         else:
             self.ords = self.file_parse(filename)
 
@@ -305,7 +305,7 @@ class Order_parse:
         return raf
 
     @staticmethod
-    def random_generate(num):
+    def random_generate(num, size):
         """
         Randomly generates 9 shop places and then specific number of Orders
         :param num: int (number of Orders)
@@ -335,8 +335,8 @@ class Order_parse:
 
         raf = []
         for i in range(num):
-            posx = random.randint(1, 100)
-            posy = random.randint(1, 100)
+            posx = random.randint(1, size)
+            posy = random.randint(1, size)
 
             shopx = 0
             shopy = 0

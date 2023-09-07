@@ -6,10 +6,10 @@ import imageio
 
 warnings.simplefilter("ignore")
 
-orders = Order_parse(choice='random', num=10).ords
+orders = Order_parse(choice='random', num=18).ords
 
 couriers = []
-for i in range(16):
+for i in range(20):
     couriers.append(Courier(num=i))
 
 deliver = greedy_algorithm3(orders, couriers)
@@ -28,9 +28,9 @@ while any(list(map(lambda x: x.partner, couriers))):
         plt.plot([o.pos2[0]], [o.pos2[1]], marker='o', color='red')
         plt.plot([o.pos1[0]], [o.pos1[1]], marker='o', color='yellow')
 
-    plt.xlim([0, 100])
+    plt.xlim([0, size])
     plt.xlabel('x', fontsize=14)
-    plt.ylim([0, 100])
+    plt.ylim([0, size])
 
     plt.title('Time is {}'.format(time), fontsize=14)
     plt.savefig(f'./img/img_{t}.png', transparent=False, facecolor='white')
@@ -43,4 +43,5 @@ while any(list(map(lambda x: x.partner, couriers))):
 
 imageio.mimsave('./example.gif',
                 frames,
-                duration=100)
+                loop=1,
+                duration=200)
