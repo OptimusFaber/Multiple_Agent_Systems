@@ -430,8 +430,10 @@ class Business:
                 if pt and obj.partner:
                     buf = obj.clear()
                     self.earnings -= obj.count(buf)
+                    buf.income = 0
                     declined_orders.append(buf)  # Убираем заказ из списка принятых и продолжаем искать варианты
                 obj.connect(ordr[i])
+                ordr[i].income = obj.count(ordr[i])
                 self.earnings += obj.count(ordr[i])
                 list_orders.append(ordr[i])  # Добавляем заказ в список принятых
 
@@ -455,9 +457,11 @@ class Business:
                     income = wrkrs[j].count(ordr[i])
                     obj = wrkrs[j]
             if obj:
-                income -= ordr[i].price * 0.9  # Мы делаем скидку в 10% за задержку заказа
+                income -= ordr[i].price * 0.1  # Мы делаем скидку в 10% за задержку заказа
                 self.earnings += income
                 obj.connect(ordr[i])
+                ordr[i].income = obj.count(ordr[i])
+                self.earnings += obj.count(ordr[i])
                 list_orders.append(ordr[i])
 
         for o in list_orders:

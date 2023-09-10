@@ -43,22 +43,27 @@ for c in couriers:
 t = 1
 frames = []
 size = 200
-
+income = 0
 while any(list(map(lambda x: x.partner, couriers))):
     for c in couriers:
         plt.plot([c.pos[0]], [c.pos[1]], marker='o', color='green')
         c.update()
-
+    ind = -1
     for o in buf:
         if o.partner:
             plt.plot([o.pos2[0]], [o.pos2[1]], marker='*', color='red')
             plt.plot([o.pos1[0]], [o.pos1[1]], marker='D', color='yellow')
+        else:
+            income += o.income
+            ind = buf.index(o)
+    if ind >= 0:
+        del buf[ind]
 
     plt.xlim([0, size])
     plt.xlabel('x', fontsize=14)
     plt.ylim([0, size])
 
-    plt.title('Time is {}'.format(time), fontsize=14)
+    plt.title('Time is {}     Earnings are {}'.format(time, str(income)), fontsize=14)
     plt.savefig(f'./img/img_{t}.png', transparent=False, facecolor='white')
     frames.append(imageio.imread(f'./img/img_{t}.png'))
     plt.close()
