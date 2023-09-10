@@ -91,7 +91,12 @@ class Agent:
         :param other: Order object
         :return: int (income)
         """
-        dst = self.dist_count(self.pos, other.pos1) + self.dist_count(other.pos1, other.pos2)
+        if self.partner:
+            [last_order] = collections.deque(self.partner, maxlen=1)  # Достаем последний заказ
+            pos = last_order.pos2
+        else:
+            pos = self.pos
+        dst = self.dist_count(pos, other.pos1) + self.dist_count(other.pos1, other.pos2)
         income = other.price - self.price * dst / 10
         return income
 
