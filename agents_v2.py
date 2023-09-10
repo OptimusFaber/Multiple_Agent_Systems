@@ -102,7 +102,6 @@ class Agent:
         else:
             return 0
 
-
     def clear(self, st=0, delivered=False):
         """
         :param st: default
@@ -111,9 +110,9 @@ class Agent:
         """
         if not delivered:
             if st == 0:
-                [last_order] = collections.deque(self.partner, maxlen=1)    # Достаем последний заказ
+                [last_order] = collections.deque(self.partner, maxlen=1)  # Достаем последний заказ
                 buf = last_order
-                last_order.clear(st=1, delivered=False)                     # чтобы заменить его на новый
+                last_order.clear(st=1, delivered=False)  # чтобы заменить его на новый
                 self.partner.pop(last_order)
                 if self.partner:
                     [last_order] = collections.deque(self.partner, maxlen=1)
@@ -192,7 +191,7 @@ class Courier(Agent):
         Calculates the next coordinates of Courier and updates the old ones
         :return: list - finish position
         """
-        if st==0:
+        if st == 0:
             pos = next(iter(self.partner)).pos1
         else:
             pos = next(iter(self.partner)).pos2
@@ -200,8 +199,6 @@ class Courier(Agent):
         b = 2 * self.pos[0] + 2 * self.pos[1] * self.k - 2 * self.k * self.b
         c = self.pos[0] ** 2 + self.pos[1] ** 2 - 2 * self.pos[1] * self.b + self.b ** 2 - 1 ** 2
         D = b ** 2 - 4 * a * c
-        # if D < 0:
-        #     print()
         if self.pos[1] < pos[1] and self.pos[0] < pos[0]:
             x = max((b + math.sqrt(D)) / (2 * a), (b - math.sqrt(D)) / (2 * a))
             y = self.k * x + self.b
@@ -229,7 +226,6 @@ class Courier(Agent):
                 y = self.pos[1] + 1
             else:
                 self.clear(delivered=True)
-                # print('DELIVER COMPLETED')
                 return pos
 
         self.pos = [x, y]  # Обновляем позицию
@@ -250,7 +246,7 @@ class Courier(Agent):
         dist = self.dist_count(position, other.pos1) + self.dist_count(other.pos1, other.pos2)
         timing = [(dist / 10) // 6, (
                 dist / 10) % 6 / 6 * 60]  # Делаем подсчёт времени для доставки Курьером продукта, если он скоро выйдет
-        delivery_time = self.free + timing   # К времени, когда Курьер закончит - добавляем время на доставку
+        delivery_time = self.free + timing  # К времени, когда Курьер закончит - добавляем время на доставку
         self.period = Time(timing[0], timing[1])
         if other.timing > delivery_time:
             self.interim_time = delivery_time
@@ -266,21 +262,18 @@ class Courier(Agent):
         self.start_work = self.start_time < time  # Проверяем вышел ли Курьер на работу
         self.end_work = self.end_time < time  # Проверяем закончил ли Курьер работу
         self.status = self.start_work and not self.end_work
-        if self.status and self.partner:    # Проверяем есть ли у Курьера заказ и вышел ли он на работу
-            if not self.delivery_status:    # рассчитываем ему путь до первой цели и меняем статус
+        if self.status and self.partner:  # Проверяем есть ли у Курьера заказ и вышел ли он на работу
+            if not self.delivery_status:  # рассчитываем ему путь до первой цели и меняем статус
                 self.route(self.delivery_status)
 
-            pos = self.calculate_position(self.delivery_status)     # Возвращаем позицию цели
+            pos = self.calculate_position(self.delivery_status)  # Возвращаем позицию цели
             [last_order] = collections.deque(self.partner, maxlen=1)
             self.free = self.partner[last_order]
-            # print(self.dist_count(self.pos, pos), self.pos, pos)
-            if self.dist_count(self.pos, pos) <= 1:                      # Если курьер в минуте от цели, считаем что
-                self.delivery_status = (self.delivery_status + 1) % 2   # заказ доставлен
+            if self.dist_count(self.pos, pos) <= 1:  # Если курьер в минуте от цели, считаем что
+                self.delivery_status = (self.delivery_status + 1) % 2  # заказ доставлен
                 self.pos = pos
                 self.route(self.delivery_status)
-                # print('ROUTE CHANGED')
-                if not self.delivery_status:                        # Если статус снова 0, значит заказ доставлен
-                    # print('DELIVER COMPLETED')
+                if not self.delivery_status:  # Если статус снова 0, значит заказ доставлен
                     self.clear(delivered=True)
 
     def check_if_arrived(self, pos):
@@ -288,7 +281,8 @@ class Courier(Agent):
             self.delivery_status += 1
 
     def __str__(self):
-        return 'Courier-{} took order number {}'.format(self.num, ', '.join(list(map(str, (map(lambda x: x.num, list(self.partner.keys())))))))
+        return 'Courier-{} took order number {}'.format(self.num, ', '.join(
+            list(map(str, (map(lambda x: x.num, list(self.partner.keys())))))))
 
 
 class Order(Agent):
@@ -307,7 +301,8 @@ class Order(Agent):
         :return:
         """
         if self.__class__.__name__ == 'Order':
-            if self.timing[0] > other.timing[0] or (self.timing[0] == other.timing[0] and self.timing.timing[1] > other.timing[1]):
+            if self.timing[0] > other.timing[0] or (
+                    self.timing[0] == other.timing[0] and self.timing.timing[1] > other.timing[1]):
                 return True
             else:
                 return False
@@ -325,6 +320,7 @@ class Order_parse:
     """
     For generating or reading coordinates of order
     """
+
     def __init__(self, choice='random', num=None, filename=None, size=200):
         if choice == 'random':
             self.ords = self.random_generate(num, size)
@@ -413,11 +409,13 @@ class Business:
             pt = None
             for j in range(len(wrkrs)):
                 if not wrkrs[j].end_work:  # Проверяем, работает ли наш курьер
-                    if wrkrs[j].time_count(ordr[i]) and wrkrs[j].count(ordr[i]) > maxi:  # Проверяем, успеет ли Курьер доставить заказ
+                    if wrkrs[j].time_count(ordr[i]) and wrkrs[j].count(
+                            ordr[i]) > maxi:  # Проверяем, успеет ли Курьер доставить заказ
                         maxi = wrkrs[j].count(ordr[i])
                         obj = wrkrs[j]
                         pt = 0
-                    elif (not wrkrs[j].time_count(ordr[i]) and wrkrs[j].partner) or (wrkrs[j].time_count(ordr[i]) and not wrkrs[j].count(
+                    elif (not wrkrs[j].time_count(ordr[i]) and wrkrs[j].partner) or (
+                            wrkrs[j].time_count(ordr[i]) and not wrkrs[j].count(
                             ordr[i]) > maxi):  # Если не успеет, то попробуем вытащить его последний заказ
                         if wrkrs[j].last_order_count() < wrkrs[j].count(ordr[i]):
                             maxi = wrkrs[j].count(ordr[i])
@@ -438,7 +436,7 @@ class Business:
         ordr.extend(declined_orders)
         return ordr
 
-    def higgle_algorithm(self, ordr, wrkrs):      # На случай если остались заказы, которые некуда рассовать
+    def higgle_algorithm(self, ordr, wrkrs):  # На случай если остались заказы, которые некуда рассовать
         list_orders = []
         for i in range(len(ordr)):
             t_maxi = [9, 0]  # Максимальное время доставки
@@ -446,12 +444,13 @@ class Business:
             income = None
             for j in range(len(wrkrs)):
                 wrkrs[j].time_count(ordr[i])
-                if not wrkrs[j].end_work and wrkrs[j].period < t_maxi:  # Ищем курьера, который быстрее всего доставит заказ
+                if not wrkrs[j].end_work and wrkrs[
+                    j].period < t_maxi:  # Ищем курьера, который быстрее всего доставит заказ
                     t_maxi = wrkrs[j].period.actual_time()
                     income = wrkrs[j].count(ordr[i])
                     obj = wrkrs[j]
             if obj:
-                income -= ordr[i].price * 0.9   # Мы делаем скидку в 10% за задержку заказа
+                income -= ordr[i].price * 0.9  # Мы делаем скидку в 10% за задержку заказа
                 self.earnings += income
                 obj.connect(ordr[i])
                 list_orders.append(ordr[i])
@@ -461,4 +460,3 @@ class Business:
                 ordr.remove(o)
 
         return ordr
-
