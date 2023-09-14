@@ -8,8 +8,9 @@ from pygame.locals import (K_ESCAPE, KEYDOWN)
 SIMULATION_NAME = 'Multi-Agent Courier-Order System'
 SIMULATION_EXPERIMENT = 'Predator Prey Relationship / Example 01'
 
-SCREEN_WIDTH =600
+SCREEN_WIDTH = 600
 SCREEN_HEIGHT = 600
+
 
 class Time:
     def __init__(self, h=9, m=0):
@@ -93,14 +94,14 @@ class Agent(pygame.sprite.Sprite):
         self.y = y
 
         # if self.__class__.__name__ == 'Courier':
-            # default values for Courier
-            # self.vmax = 2.0
+        # default values for Courier
+        # self.vmax = 2.0
 
-            # initial velocity for Courier
-            # self.dx = 0
-            # self.dy = 0
+        # initial velocity for Courier
+        # self.dx = 0
+        # self.dy = 0
 
-            # move agent on screen
+        # move agent on screen
         self.rect.centerx = int(self.x)
         self.rect.centery = int(self.y)
 
@@ -195,7 +196,7 @@ class Courier(Agent):
         self.make_route = True
         self.free = Time(self.start_time[0], self.start_time[1]) if self.start_time > time else time
         self.interim_time = None
-        super().__init__(size = 4, color = (255, 0, 0), x = self.pos[0], y = self.pos[1])
+        super().__init__(size=4, color=(255, 0, 0), x=self.pos[0], y=self.pos[1])
 
     def route(self, pt=0):
         """
@@ -380,7 +381,8 @@ class Order_parse:
     """
     For generating or reading coordinates of order
     """
-    def __init__(self, choice='random', num=None, filename=None, size=600, shops_num=9):
+
+    def __init__(self, choice='random', num=None, filename=None, size=600, shops_num=9, gen_shops=False):
         """
         :param choice: default: random, for reading from .txt: file, for one random order: order
         :param num: for random choice - number of random orders
@@ -445,7 +447,7 @@ class Order_parse:
         self.num = num
         return ordrs
 
-    def random_time_generate(self, size):
+    def random_time_generate(self, size=600):
         """
         Generates a random Order somewhere on map
         :param size: size of field
@@ -567,6 +569,15 @@ def main():
     pygame.init()
     clock = pygame.time.Clock()
 
+    # white = (255, 255, 255)
+    green = (0, 255, 0)
+    black = (0, 0, 0)
+
+    font = pygame.font.Font('freesansbold.ttf', 12)
+    t = ':'.join(map(str, time.actual_time()))
+    text = font.render(t, True, green, black)
+    textRect = text.get_rect()
+    textRect.center = (600-20, 20)
     # Create the screen object
     screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
     pygame.display.set_caption(f'Simulation')
@@ -577,8 +588,8 @@ def main():
     orders_buf = targets.ords
     orders_buf.sort(key=lambda x: x.timing)
     orders = orders_buf.copy()
-    couriers = [Courier(num=i, ln=600, wd=600) for i in range(30)]
-    alg=Algorithm()
+    couriers = [Courier(num=i, ln=600, wd=600) for i in range(15)]
+    alg = Algorithm()
     new_sum1, new_sum2 = 1, 2
     pt = True
     for i in range(15):
@@ -597,7 +608,13 @@ def main():
     # Run until the user asks to quit
     running = True
     print(len(orders))
+    t = 0
     while running:
+        ti = ':'.join(map(str, time.actual_time()))
+        text = font.render(ti, True, green, black)
+        textRect = text.get_rect()
+        textRect.center = (600 - 20, 20)
+
         # check user input events
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -606,28 +623,33 @@ def main():
                 if event.key == K_ESCAPE:
                     running = False
 
-         # Fill the background
+        # Fill the background
         screen.fill((11, 11, 11))
 
         # update all agents
-        print(len(orders))
+        # print(len(orders))
         [o.update(screen) for o in orders]
         [c.update(screen) for c in couriers]
         [s.update(screen) for s in shops]
-        time.update()
-
-        if time.actual_time()[1] % 15 == 0:
-            ordr = Order_parse(choice='order', size=600).ords
-            orders.append(ordr)
-            ordr = alg.greedy_algorithm3([ordr], couriers)
-            if ordr:
-                alg.higgle_algorithm(ordr, couriers)
+        if t == 24:
+            time.update()
+            t = 0
+            if time.actual_time()[1] % 4 == 0:
+                ordr = targets.random_time_generate()
+                orders.append(ordr)
+                ordr = alg.greedy_algorithm3([ordr], couriers)
+                if ordr:
+                    alg.higgle_algorithm(ordr, couriers)
+                print(orders)
 
         orders = [o for o in orders if o.partner]
 
+        screen.blit(text, textRect)
+
         # draw all changes to the screen
         pygame.display.flip()
-        clock.tick(24)         # wait until next frame (at 60 FPS)
+        clock.tick(24)  # wait until next frame (at 60 FPS)
+        t += 1
         # print(len(orders))
 
     # Done! Time to quit.
