@@ -80,40 +80,39 @@ time = Time()
 class Agent(pygame.sprite.Sprite):
     def __init__(self, size, color, x=None, y=None, num=None):
         super().__init__()
-        self.num = num
-        self.partner = None if self.__class__.__name__ == 'Order' else {}
-        self.income = 0
+        self.num = num  # Номер нашего Агента
+        self.partner = None if self.__class__.__name__ == 'Order' else {}   # Связь Агента
+        self.income = 0     # Доход, который он мне приносит
         self.free = time
 
-        # draw agent
+        # Рисуем Агента
         self.surf = pygame.Surface((2 * size, 2 * size), pygame.SRCALPHA, 32)
         pygame.draw.circle(self.surf, color, (size, size), size)
         self.rect = self.surf.get_rect()
 
-        # initial position
         self.x = x
         self.y = y
 
-        # move agent on screen
         self.rect.centerx = int(self.x)
         self.rect.centery = int(self.y)
 
-    def connect(self, other, timing=None, st=0):
+    def connect(self, other, timing=None):
         """
         :param other: Order object
-        :param st: default
+        :param timing: at what time the Order will be delivered by Courier
         :return: None
         """
-        if st == 0:
+        if self.__class__.__name__ == 'Courier':
             self.partner.update([(other, timing)])
             self.income = self.count(other)
             self.free = Time(timing[0], timing[1])
-            other.connect(self, st=1)
+            other.connect(self)
         else:
             self.partner = other
 
     def count(self, other):
         """
+        Our income
         :param other: Order object
         :return: int (income)
         """
@@ -128,37 +127,32 @@ class Agent(pygame.sprite.Sprite):
 
     def clear(self, st=0, delivered=False):
         """
+        Destrou cprevious connection Order-Courier
         :param st: default
         :param delivered: bool (status of Order if it was delivered or not)
         :return: None if delivered, Order if not delivered
         """
-        if not delivered:
+        if not delivered:   # Разрушаем связь, хоть Заказ еще не был доставлен
             if st == 0:
                 [last_order] = collections.deque(self.partner, maxlen=1)  # Достаем последний заказ
                 buf = last_order
                 last_order.clear(st=1, delivered=False)  # чтобы заменить его на новый
                 self.partner.pop(last_order)
-                # if self.partner:
-                #     [last_order] = collections.deque(self.partner, maxlen=1)
-                #     self.free = Time(self.partner[last_order][0], self.partner[last_order][1])
-                # else:
-                #     self.free = time
                 return buf
             else:
                 self.partner = None
-        else:
+        else:   # Разрушаем связь и удаляем заказ, когда тот доставлен
             if st == 0:
                 first_order = next(iter(self.partner))
                 first_order.clear(st=1, delivered=True)
                 self.partner.pop(first_order)
-                # if not self.partner:
-                #     self.free = time
             else:
                 self.partner = None
 
     @staticmethod
     def dist_count(dot1, dot2):
         """
+        Counts destination between Order and Courier
         :param dot1: list (coordinates)
         :param dot2: list (coordinates)
         :return: list (result coordinates)
@@ -174,13 +168,11 @@ class Courier(Agent):
         self.end_time = [self.start_time[0] + 12, self.start_time[1]]   # Окончание работы Курьера
         self.status = self.start_time < time < self.end_time    # Статус Курьера - работает он или нет
         self.num = num      # Рабочий номер Курьера
-        self.vector = None      #
         self.k = None           # Параметр k для построения прямой пути Курьера
         self.b = None           # Параметр b для построения прямой пути Курьера
         self.delivery_status = 0    # Статус заказа 0 - нужно построить путь до магазина, 1 - путь до цели
         self.make_route = True      # Параметр для строительства маршрута
         self.free = Time(self.start_time[0], self.start_time[1]) if self.start_time > time else time    # Время, когда Курьер будет доступен для принятия нового заказа
-        # self.interim_time = None
         super().__init__(size=4, color=(255, 0, 0), x=self.pos[0], y=self.pos[1], num=self.num)   # Рисуем Курьера на экране
 
     def route(self, pt=0):
@@ -191,7 +183,7 @@ class Courier(Agent):
         """
         if self.partner:
             first_order = next(iter(self.partner))
-            if pt == 0:
+            if pt == 0:     # pt это пункт назначения (pt = 0 это магазин, pt = 1 это заказчик)
                 if self.pos[0] == first_order.pos1[0] or self.pos[1] == first_order.pos1[1]:
                     self.k = 0
                     self.b = 0
@@ -206,7 +198,7 @@ class Courier(Agent):
                     self.k = (first_order.pos2[1] - self.pos[1]) / (first_order.pos2[0] - self.pos[0])
                     self.b = self.pos[1] - self.k * self.pos[0]
 
-    def calculate_position(self, st=0):  # Обновляем позицию каждую секунду => он будет проходить 1 клетку в секунду
+    def calculate_position(self, pt=0):  # Обновляем позицию каждую секунду => он будет проходить 1 клетку в секунду
         """
         We have equation:
         x1^2 * (1+k^2) - x1 * (2*x0 + 2*y0*k - 2*k*b) + (x0^2 + y0^2 - 2*y0*b + b^2 - s^2) = 0
@@ -214,7 +206,7 @@ class Courier(Agent):
         Calculates the next coordinates of Courier and updates the old ones
         :return: list - finish position
         """
-        if st == 0:
+        if pt == 0:     # Как и в прошлом методе, pt = 0 это магазин, а pt = 1 это заказчик
             pos = next(iter(self.partner)).pos1
         else:
             pos = next(iter(self.partner)).pos2
@@ -263,23 +255,26 @@ class Courier(Agent):
         :param other: Order object
         :return: bool
         """
-        if not self.partner:
+        if not self.partner:    # Если у Курьера нет иных заказов, то считаем точкой отсчёта его начальную позицию
             position = self.pos
         else:
             [last_order] = collections.deque(self.partner, maxlen=1)
-            position = last_order.pos2
+            position = last_order.pos2      # Если в очереди есть заказы, то считаем точкой отсчета координаты последнего заказа
 
         dist = self.dist_count(position, other.pos1) + self.dist_count(other.pos1, other.pos2)
-        timing = [(dist / 60) // 5, (
-                dist / 60) % 5 / 5 * 60]  # Делаем подсчёт времени для доставки Курьером продукта, если он скоро выйдет
-        self.delivery_time = self.free + timing  # К времени, когда Курьер закончит - добавляем время на доставку
-        self.delay = timing
-        if other.timing > self.delivery_time and self.delivery_time < self.end_time:
+        self.delay = [(dist / 60) // 5, (dist / 60) % 5 / 5 * 60]  # Делаем подсчёт времени для доставки Курьером продукта, его скорость 5 км/ч
+        self.delivery_time = self.free + self.delay  # Ко времени, когда Курьер закончит - добавляем время на доставку
+        if other.timing > self.delivery_time and self.delivery_time < self.end_time:    # Проверяем, успеет ли Курьер всё доставить
             return True
         else:
             return False
 
     def check_if_swap(self, other):
+        """
+        Checks if Courier can swap new Order with last one if new is more profitable
+        :param other: Order object
+        :return: bool
+        """
         last_order = list(self.partner.keys())[-1]
         if len(self.partner) > 1:
             pre_last_order_time = self.partner[list(self.partner.keys())[-2]]
@@ -287,13 +282,14 @@ class Courier(Agent):
         else:
             pre_last_order_time = time.actual_time()
             pos = self.pos
-
-        dist1 = self.dist_count(pos, other.pos1) + self.dist_count(other.pos1, other.pos2)
-        dist2 = self.dist_count(pos, last_order.pos1) + self.dist_count(last_order.pos1, last_order.pos2)
-        timing = Time((dist1 / 60) // 6, (dist1 / 60) % 6 / 6 * 60)
-        delivery_time = timing + pre_last_order_time
+        # Тут нужно узнать, будет ли Курьеру выгодна данная операция, поэтому сравним текущий последний заказ и новый
+        dist1 = self.dist_count(pos, other.pos1) + self.dist_count(other.pos1, other.pos2)  # Дистанция до нового заказа
+        dist2 = self.dist_count(pos, last_order.pos1) + self.dist_count(last_order.pos1, last_order.pos2)   # Дистанция до старого заказа
+        delay = Time((dist1 / 60) // 5, (dist1 / 60) % 5 / 5 * 60)  # Время за которое доставят новый заказ
+        delivery_time = delay + pre_last_order_time     # К какому времени прийдет новый заказ
 
         if delivery_time < other.timing and (last_order.price - self.price*dist2) < (other.price - self.price*dist1):
+        # Сравниваем время доставки первого и второго + цену доставки
             return True
         else:
             return False
@@ -304,31 +300,31 @@ class Courier(Agent):
         :return: None
         """
         self.status = self.start_time < time < self.end_time
-        if self.status and self.partner:  # Проверяем есть ли у Курьера заказ и вышел ли он на работу
-            # if not self.delivery_status:  # рассчитываем ему путь до первой цели и меняем статус
-            self.route(self.delivery_status)
-
-            pos = self.calculate_position(self.delivery_status)  # Возвращаем позицию цели
+        if self.status and self.partner:  # Проверяем есть ли у Курьера заказ и вышел ли он на работу    
+            self.route(self.delivery_status)    # рассчитываем ему путь до цели (self.delivery_status = 0 это магазин, self.delivery_status = 1 это Заказчик)
+            pos = self.calculate_position(self.delivery_status)  # Возвращаем позицию цели, к которой пойдет Курьер
 
             [last_order] = collections.deque(self.partner, maxlen=1)
-            self.free = Time(self.partner[last_order][0], self.partner[last_order][1])
-            if self.dist_count(self.pos, pos) <= 1:  # Если курьер в минуте от цели, считаем что
-                self.delivery_status = (self.delivery_status + 1) % 2  # заказ доставлен
-                self.pos = pos
-                self.route(self.delivery_status)
-                if not self.delivery_status:  # Если статус снова 0, значит заказ доставлен
-                    self.clear(delivered=True)
-        elif self.status and not self.partner:
-            self.free = time
+            self.free = Time(self.partner[last_order][0], self.partner[last_order][1])  # Обновляем время освобождения Курьера
 
+            if self.dist_count(self.pos, pos) <= 1:  # Если курьер в минуте от цели, считаем что заказ доставлен
+                self.delivery_status = (self.delivery_status + 1) % 2   # Меняем пункт доставки на Заказчика
+                self.pos = pos  # Обновляем положение Курьера
+                self.route(self.delivery_status)    # Заново строим машрут до цели
+                if not self.delivery_status:  # Если статус снова 0, значит заказ доставлен
+                    self.clear(delivered=True)  # Уничтожаем связь Курьер-Заказ и уничтожаем заказ
+        elif self.status and not self.partner:
+            self.free = time    # Обновляем время освобождения ждущего Курьера на текущие
+
+        # Обновляем графику
         self.x = self.pos[0]
         self.y = self.pos[1]
 
-        # update graphics
         self.rect.centerx = int(self.x)
         self.rect.centery = int(self.y)
         screen.blit(self.surf, self.rect)
 
+        # Рисуем номер Курьера
         font = pygame.font.Font('freesansbold.ttf', 12)
         t = str(self.num)
         text = font.render(t, True, (255, 255, 255), None)
@@ -336,22 +332,21 @@ class Courier(Agent):
         textRect.center = (self.pos[0], self.pos[1])
         screen.blit(text, textRect)
 
-    def check_if_arrived(self, pos):
-        if self.dist_count(self.pos, pos) <= 1:
-            self.delivery_status += 1
-
     def __str__(self):
+        """
+        Returns info about Orders which Courier took
+        """
         return 'Courier-{} took order number {}'.format(self.num, ', '.join(
             list(map(str, (map(lambda x: x.num, list(self.partner.keys())))))))
 
 
 class Order(Agent):
     def __init__(self, pos1, pos2, price, t, num):
-        self.pos1 = pos1
-        self.pos2 = pos2
-        self.price = price
-        self.timing = [t[0], t[1]]
-        self.num = num
+        self.pos1 = pos1    # Координаты магазина
+        self.pos2 = pos2    # Координаты Заказчика
+        self.price = price  # Цена, которую платит Курьер
+        self.timing = [t[0], t[1]]  # Время к которому ожидается заказ
+        self.num = num  # Номер закащза (нужен для дебага)
         super().__init__(size=3, color=(0, 255, 0), x=self.pos2[0], y=self.pos2[1], num=self.num)
 
     def __gt__(self, other):
@@ -373,6 +368,10 @@ class Order(Agent):
                 return False
 
     def update(self, screen):
+        """
+        Draws Order object on map
+        :param Pygame screen
+        """
         screen.blit(self.surf, self.rect)
         return
 
@@ -381,11 +380,15 @@ class Order(Agent):
 
 
 class Shops(Agent):
-    def __init__(self, chords):
-        self.pos = chords
+    def __init__(self, pos):
+        self.pos = pos   # Координаты магазина
         super().__init__(size=3, color=(255, 255, 0), x=self.pos[0], y=self.pos[1])
 
     def update(self, screen):
+        """
+        Draws Shop object on map
+        :param Pygame screen
+        """
         screen.blit(self.surf, self.rect)
         return
 
@@ -402,6 +405,7 @@ class Order_parse:
         :param filename: for file choice - name of .txt file
         :param size: size of field
         :param shops_num: number of shop points
+        :param gen_shops: generate shops for order choice
         """
         self.shops = None
         self.num = 0
@@ -423,7 +427,7 @@ class Order_parse:
         :param file_name: str (file name .txt)
         :return: list of Order objects
         """
-        raf = []
+        ords = []
         file = open(file_name).readlines()
         for i in range(len(file)):
             buf = file[i].split(' ')
@@ -431,10 +435,10 @@ class Order_parse:
             buf[1] = list(map(int, buf[1].replace('(', '').replace(')', '').split(',')))
             buf[2] = int(buf[2])
             buf[3] = list(map(int, buf[3].split(':')))
-            raf.append(Order(buf[0], buf[1], buf[2], buf[3], i))
-        return raf
+            ords.append(Order(buf[0], buf[1], buf[2], buf[3], i))
+        return ords
 
-    def random_generate(self, num, size):
+    def random_generate(self, num, size=600):
         """
         Randomly generates 9 shop places and then specific number of Orders
         :param size: size of field
@@ -486,7 +490,13 @@ class Order_parse:
 
         return ordr
 
-    def point_generator(self, size=100, num=9):
+    def point_generator(self, size=600, num=9):
+        """
+        Generates random Shops somewhere on map
+        :param size: size of field
+        :param num: number of shops
+        :return
+        """
         s1 = random.randint(1, size // 10)
         s2 = random.randint(size // 2, size)
         s3 = random.randint(6, 11)
@@ -509,8 +519,11 @@ class Order_parse:
 
 
 class Algorithm:
+    """
+    Algorithms for distributing Orders among Couriers
+    """
     def __init__(self):
-        self.earnings = 0
+        self.earnings = 0   # Моя выручка за всю работу
 
     def greedy_algorithm3(self, ordr, wrkrs):
         list_orders = []
@@ -518,13 +531,12 @@ class Algorithm:
         for i in range(len(ordr)):
             maxi = 0  # Максимальная сумма, которую можем получить с этой сделки
             obj = None  # Курьер, который доставит заказ
-            pt = None
-            timing = None
+            pt = None   # Какой вариант мы выбрали (pt = 0 это просто добавить заказ, pt = 1 заменить последний)
+            timing = None   # Время, к которому Курьер доставит заказ
             mini = 10000
             for j in range(len(wrkrs)):
                 if time < wrkrs[j].end_time:  # Проверяем, работает ли наш курьер
-                    if wrkrs[j].time_count(ordr[i]) and wrkrs[j].count(
-                            ordr[i]) > maxi:  # Проверяем, успеет ли Курьер доставить заказ
+                    if wrkrs[j].time_count(ordr[i]) and wrkrs[j].count(ordr[i]) > maxi:  # Проверяем, успеет ли Курьер доставить заказ
                         timing = wrkrs[j].delivery_time
                         maxi = wrkrs[j].count(ordr[i])
                         obj = wrkrs[j]
@@ -534,16 +546,16 @@ class Algorithm:
                             timing = wrkrs[j].delivery_time
                             obj = wrkrs[j]
                             pt = 1
-                    else:
+                    else:   # На крайний случай спихнем заказ отдыхающему Курьеру
                         if (wrkrs[j].dist_count(wrkrs[j].pos, ordr[i].pos1) + wrkrs[j].dist_count(ordr[i].pos1, ordr[i].pos2)) < mini:
                             timing = wrkrs[j].delivery_time
                             mini = wrkrs[j].dist_count(wrkrs[j].pos, ordr[i].pos1) + wrkrs[j].dist_count(ordr[i].pos1, ordr[i].pos2)
                             obj = wrkrs[j]
                             pt = 0
             if obj:  # Если Курьер был найден, то соединяем его с заказом
-                if pt and obj.partner:
+                if pt and obj.partner:  # Если мы выбрали вариант замены
                     buf = obj.clear()       # Меняем старый заказ на новый
-                    self.earnings -= obj.count(buf)
+                    self.earnings -= obj.count(buf)     # Вычитаем деньги из расчета
                     buf.income = 0
                     declined_orders.append(buf)  # Убираем заказ из списка принятых и продолжаем искать варианты
                 obj.connect(ordr[i], timing)
@@ -551,19 +563,19 @@ class Algorithm:
                 self.earnings += obj.count(ordr[i])
                 list_orders.append(ordr[i])  # Добавляем заказ в список принятых
 
-        for o in list_orders:
+        for o in list_orders:   # Обновляем список заказов
             if o in ordr:
                 ordr.remove(o)
-        ordr.extend(declined_orders)
-        return ordr
+        ordr.extend(declined_orders)    # Добавляем отклоненные
+        return ordr     # Возвращаем остатки
 
     def higgle_algorithm(self, ordr, wrkrs):  # На случай если остались заказы, которые некуда рассовать
         list_orders = []
         for i in range(len(ordr)):
             t_maxi = [9, 0]  # Максимальное время доставки
             obj = None  # Курьер, который доставит заказ
-            income = None
-            timing = None
+            income = None   # Моя выручка
+            timing = None   # Время на доставку
             for j in range(len(wrkrs)):
                 wrkrs[j].time_count(ordr[i])
                 if time < wrkrs[j].end_time and wrkrs[j].delay < t_maxi:  # Ищем курьера, который быстрее всего доставит заказ
@@ -585,11 +597,11 @@ class Algorithm:
 
 
 def main():
-    # Import and initialize the pygame library
+    size = 600
+
     pygame.init()
     clock = pygame.time.Clock()
 
-    # white = (255, 255, 255)
     green = (0, 255, 0)
     black = (0, 0, 0)
 
@@ -598,21 +610,23 @@ def main():
     text = font.render(t, True, green, black)
     textRect = text.get_rect()
     textRect.center = (600-20, 20)
-    # Create the screen object
+ 
     screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
     pygame.display.set_caption(f'Simulation')
 
-    # create initial agents
+    # Создаем наших агентов
     targets = Order_parse(choice='random', num=20)
     shops = targets.shops
     orders_buf = targets.ords
     orders_buf.sort(key=lambda x: x.timing)
     orders = orders_buf.copy()
     couriers = [Courier(num=i, ln=600, wd=600) for i in range(15)]
+
+    # Запускаем Алгоритм распределения заказов
     alg = Algorithm()
     new_sum1, new_sum2 = 1, 2
     pt = True
-    for i in range(15):
+    for i in range(15): 
         orders_buf = alg.greedy_algorithm3(orders_buf, couriers)
         if pt:
             new_sum1 = alg.earnings
@@ -625,17 +639,19 @@ def main():
     if orders_buf:
         alg.higgle_algorithm(orders_buf, couriers)
 
-    # Run until the user asks to quit
     running = True
     print(len(orders))
     t = 0
     while running:
-        ti = ':'.join(map(str, time.actual_time()))
-        text = font.render(ti, True, green, black)
+        ti = time.actual_time()
+        if ti[1] < 9:
+            ti = '{}:{}'.format(str(ti[0]), '0' + str(ti[1]))
+        else:
+            ti = '{}:{}'.format(str(ti[0]), str(ti[1]))
+        text = font.render(ti, True, green, None)
         textRect = text.get_rect()
-        textRect.center = (600 - 20, 20)
+        textRect.center = (size - 15, 10)
 
-        # check user input events
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
@@ -643,36 +659,33 @@ def main():
                 if event.key == K_ESCAPE:
                     running = False
 
-        # Fill the background
         screen.fill((11, 11, 11))
 
-        # update all agents
-        # print(len(orders))
+        # Обновляем всех Агентов
         [o.update(screen) for o in orders]
         [c.update(screen) for c in couriers]
         [s.update(screen) for s in shops]
         if t == 24:
+            # Время обновляется раз в секунду (1 реальная секунда = 1 минуте симуляции)
             time.update()
             t = 0
+            # Каждые 4 секунды (минуты) добавляем новый заказ
             if time.actual_time()[1] % 4 == 0:
                 ordr = targets.random_time_generate()
                 orders.append(ordr)
                 ordr = alg.greedy_algorithm3([ordr], couriers)
                 if ordr:
                     alg.higgle_algorithm(ordr, couriers)
-                print(orders)
 
+        # Удаляем старые заказы, которые уже доставили
         orders = [o for o in orders if o.partner]
 
         screen.blit(text, textRect)
 
-        # draw all changes to the screen
         pygame.display.flip()
-        clock.tick(24)  # wait until next frame (at 60 FPS)
+        clock.tick(24)  # 60 FPS
         t += 1
-        # print(len(orders))
 
-    # Done! Time to quit.
     pygame.quit()
 
 
