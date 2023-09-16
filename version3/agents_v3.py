@@ -104,11 +104,12 @@ class Agent(pygame.sprite.Sprite):
         """
         if self.__class__.__name__ == 'Courier':
             self.partner.update([(other, timing)])
-            self.income = self.count(other)
+            self.income = round(self.count(other))
             self.free = Time(timing[0], timing[1])
             other.connect(self)
         else:
             self.partner = other
+            self.income = round(other.income)
 
     def count(self, other):
         """
@@ -122,7 +123,7 @@ class Agent(pygame.sprite.Sprite):
         else:
             pos = self.pos
         dst = self.dist_count(pos, other.pos1) + self.dist_count(other.pos1, other.pos2)
-        income = other.price - self.price * dst / 60
+        income = round(other.price - self.price * dst / 60)
         return income
 
     def clear(self, st=0, delivered=False):
@@ -141,6 +142,7 @@ class Agent(pygame.sprite.Sprite):
                 return buf
             else:
                 self.partner = None
+                self.income = 0
         else:   # Разрушаем связь и удаляем заказ, когда тот доставлен
             if st == 0:
                 first_order = next(iter(self.partner))
@@ -280,6 +282,8 @@ class Courier(Agent):
             pre_last_order_time = self.partner[list(self.partner.keys())[-2]]
             pos = list(self.partner.keys())[-2].pos2
         else:
+            if self.delivery_status == 1:
+                return False    # Курьер уже забрал продукты, обратно мы его не повернем
             pre_last_order_time = time.actual_time()
             pos = self.pos
         # Тут нужно узнать, будет ли Курьеру выгодна данная операция, поэтому сравним текущий последний заказ и новый
@@ -457,7 +461,7 @@ class Order_parse:
                     shopy = s.pos[1]
                     dst = math.sqrt((posx - s.pos[0]) ** 2 + (posy - s.pos[1]) ** 2)
 
-            price = random.randint(40, 55) * (dst // 10 + 12)
+            price = random.randint(40, 48) * (dst // 60 + 4)
             t = random.randint(30, 75)
             tme = time + [0, t]
 
@@ -484,7 +488,7 @@ class Order_parse:
                 shopy = s.pos[1]
                 dst = math.sqrt((posx - s.pos[0]) ** 2 + (posy - s.pos[1]) ** 2)
 
-        price = random.randint(40, 55) * (dst // 10 + 12)
+        price = random.randint(40, 48) * (dst // 60 + 4)
 
         ordr = Order([shopx, shopy], [posx, posy], price, timing, self.num)
 
@@ -499,7 +503,7 @@ class Order_parse:
         """
         s1 = random.randint(1, size // 10)
         s2 = random.randint(size // 2, size)
-        s3 = random.randint(6, 11)
+        s3 = random.randint(size//15, size//5)
         x = []
         while len(x) < num:
             dot = random.randrange(s1, s2, s3)
@@ -555,12 +559,13 @@ class Algorithm:
             if obj:  # Если Курьер был найден, то соединяем его с заказом
                 if pt and obj.partner:  # Если мы выбрали вариант замены
                     buf = obj.clear()       # Меняем старый заказ на новый
-                    self.earnings -= obj.count(buf)     # Вычитаем деньги из расчета
+                    # self.earnings -= round(obj.count(buf))     # Вычитаем деньги из расчета
                     buf.income = 0
                     declined_orders.append(buf)  # Убираем заказ из списка принятых и продолжаем искать варианты
                 obj.connect(ordr[i], timing)
-                ordr[i].income = obj.count(ordr[i])
-                self.earnings += obj.count(ordr[i])
+                ordr[i].income = round(obj.count(ordr[i]))
+                # ordr[i].income = obj.count(ordr[i])
+                # self.earnings += round(obj.count(ordr[i]))
                 list_orders.append(ordr[i])  # Добавляем заказ в список принятых
 
         for o in list_orders:   # Обновляем список заказов
@@ -584,9 +589,9 @@ class Algorithm:
                     income = wrkrs[j].count(ordr[i])
                     obj = wrkrs[j]
             if obj:
-                income -= ordr[i].price * 0.1  # Мы делаем скидку в 10% за задержку заказа
-                self.earnings += income
+                income -= round(ordr[i].price * 0.1)  # Мы делаем скидку в 10% за задержку заказа
                 obj.connect(ordr[i], timing)
+                ordr[i].income = income
                 list_orders.append(ordr[i])
 
         for o in list_orders:
@@ -607,9 +612,9 @@ def main():
 
     font = pygame.font.Font('freesansbold.ttf', 12)
     t = ':'.join(map(str, time.actual_time()))
-    text = font.render(t, True, green, black)
+    text = font.render(t, True, green, None)
     textRect = text.get_rect()
-    textRect.center = (600-20, 20)
+    textRect.center = (size-15, 10)
  
     screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
     pygame.display.set_caption(f'Simulation')
@@ -624,6 +629,13 @@ def main():
 
     # Запускаем Алгоритм распределения заказов
     alg = Algorithm()
+
+    font2 = pygame.font.Font('freesansbold.ttf', 12)
+    e = "{} руб.".format(str(alg.earnings))
+    text2 = font2.render(e, True, green, black)
+    textRect2 = text2.get_rect()
+    textRect2.center = (30, 10)
+
     new_sum1, new_sum2 = 1, 2
     pt = True
     for i in range(15): 
@@ -652,6 +664,12 @@ def main():
         textRect = text.get_rect()
         textRect.center = (size - 15, 10)
 
+        font2 = pygame.font.Font('freesansbold.ttf', 12)
+        e = "{} руб.".format(str(alg.earnings))
+        text2 = font2.render(e, True, green, black)
+        textRect2 = text2.get_rect()
+        textRect2.center = (30, 10)
+
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
@@ -670,7 +688,7 @@ def main():
             time.update()
             t = 0
             # Каждые 4 секунды (минуты) добавляем новый заказ
-            if time.actual_time()[1] % 4 == 0:
+            if time.actual_time()[1] % 1 == 0:
                 ordr = targets.random_time_generate()
                 orders.append(ordr)
                 ordr = alg.greedy_algorithm3([ordr], couriers)
@@ -678,9 +696,14 @@ def main():
                     alg.higgle_algorithm(ordr, couriers)
 
         # Удаляем старые заказы, которые уже доставили
+        for o in orders:
+            if not o.partner:
+                alg.earnings += o.income
+
         orders = [o for o in orders if o.partner]
 
         screen.blit(text, textRect)
+        screen.blit(text2, textRect2)
 
         pygame.display.flip()
         clock.tick(24)  # 60 FPS
