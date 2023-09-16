@@ -503,7 +503,7 @@ class Order_parse:
         """
         s1 = random.randint(1, size // 10)
         s2 = random.randint(size // 2, size)
-        s3 = random.randint(size//15, size//5)
+        s3 = random.randint(size//25, size//15)
         x = []
         while len(x) < num:
             dot = random.randrange(s1, s2, s3)
